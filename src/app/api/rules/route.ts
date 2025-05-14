@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
+import { UserRole } from '@/types/enums';
 import clientPromise from '@/lib/mongodb';
 import { Rule } from '@/types/rule'; // Unser erstelltes Interface
 import { ObjectId } from 'mongodb';

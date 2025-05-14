@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Rule } from '@/types/rule';
+import { UserRole } from '@/types/enums';
+import { userHasRoles } from '@/lib/authUtils';
 
 export default function RuleManagerPage() {
   const { data: session, status } = useSession();
@@ -70,9 +72,7 @@ export default function RuleManagerPage() {
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-700">Regelübersicht</h2>
-          {(session.user?.role === 'Admin' || 
-            session.user?.role === 'Compliancer Manager FULL' || 
-            session.user?.role === 'Compliancer Manager WRITE') && (
+          {(userHasRoles(session?.user?.roles, [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_WRITE])) && (
             <Link href="/rule-manager/new">
               <button className="px-4 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600">
                 Neue Regel erstellen
@@ -126,14 +126,12 @@ export default function RuleManagerPage() {
                       <Link href={`/rule-manager/${rule._id?.toString()}`} className="text-indigo-600 hover:text-indigo-900">
                         Details
                       </Link>
-                      {(session.user?.role === 'Admin' || 
-                        session.user?.role === 'Compliancer Manager FULL' || 
-                        session.user?.role === 'Compliancer Manager WRITE') && (
+                      {(userHasRoles(session?.user?.roles, [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_WRITE])) && (
                         <Link href={`/rule-manager/${rule._id?.toString()}/edit`} className="text-indigo-600 hover:text-indigo-900 ml-4">
                           Bearbeiten
                         </Link>
                       )}
-                      {(session.user?.role === 'Admin' || session.user?.role === 'Compliancer Manager FULL') && (
+                      {(userHasRoles(session?.user?.roles, [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL])) && (
                          <button 
                             className="text-red-600 hover:text-red-900 ml-4"
                           >

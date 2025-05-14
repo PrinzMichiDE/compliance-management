@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import RuleForm from '@/components/RuleForm';
 import { Rule } from '@/types/rule';
+import { UserRole } from '@/types/enums';
 
 export default function NewRulePage() {
   const { data: session, status } = useSession();
@@ -19,8 +20,9 @@ export default function NewRulePage() {
       router.replace('/login');
       return;
     }
-    const allowedCreateRoles = ['Admin', 'Compliancer Manager FULL', 'Compliancer Manager WRITE'];
-    if (session && !allowedCreateRoles.includes(session.user?.role || '')) {
+    const allowedCreateRoles: UserRole[] = [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_WRITE];
+    
+    if (session?.user?.roles && !session.user.roles.some(role => allowedCreateRoles.includes(role))) {
       alert('Sie haben keine Berechtigung, neue Regeln zu erstellen.');
       router.replace('/rule-manager');
     }
