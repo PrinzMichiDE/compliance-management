@@ -1,15 +1,12 @@
-"use client";
+'use client';
 
-import { SessionProvider } from "next-auth/react";
-import React from "react";
+import { SessionProvider } from 'next-auth/react';
+import React from 'react';
 
-interface ProvidersProps {
+interface Props {
   children: React.ReactNode;
-  // Du könntest hier session als Prop übergeben, wenn du sie serverseitig abrufst und weitergibst,
-  // aber für den reinen Client-Side Provider ist es nicht zwingend notwendig.
-  // session?: any; 
 }
 
-export default function Providers({ children }: ProvidersProps) {
+export default function AuthProvider({ children }: Props) {
   return <SessionProvider>{children}</SessionProvider>;
 } 

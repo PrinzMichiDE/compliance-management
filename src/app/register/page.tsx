@@ -1,38 +1,50 @@
-"use client";
+'use client';
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation'; // Korrekter Import für App Router
+import { useState, useEffect, FormEvent } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function RegisterPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setSuccessMessage(null);
+  const enableLocalRegistration = process.env.NEXT_PUBLIC_ENABLE_LOCAL_REGISTRATION === 'true';
+
+  useEffect(() => {
+    if (!enableLocalRegistration) {
+      router.replace('/login'); // Weiterleiten, wenn Registrierung deaktiviert ist
+    } else if (status === 'authenticated') {
+      router.replace('/dashboard'); // Weiterleiten, wenn bereits angemeldet
+    }
+  }, [session, status, router, enableLocalRegistration]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
     if (password !== confirmPassword) {
-      setError("Die Passwörter stimmen nicht überein.");
+      setError('Die Passwörter stimmen nicht überein.');
       return;
     }
 
-    // Optionale: Passwortstärke-Validierung clientseitig (zusätzlich zur serverseitigen)
-    if (password.length < 6) { // Beispiel: Mindestlänge 6 Zeichen
-        setError("Das Passwort muss mindestens 6 Zeichen lang sein.");
-        return;
+    if (!name.trim()) {
+      setError('Name ist erforderlich.');
+      return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/register', {
+      const response = await fetch('/api/auth/register', { // API-Route für die Registrierung
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,117 +55,74 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.");
+        setError(data.message || 'Registrierung fehlgeschlagen. Versuchen Sie es später erneut.');
       } else {
-        setSuccessMessage(data.message || "Registrierung erfolgreich! Sie können sich jetzt anmelden.");
-        // Optional: Felder leeren oder zur Login-Seite weiterleiten
-        // router.push('/login');
-        setName("");
-        setEmail("");
-        setPassword("");
-        setConfirmPassword("");
+        setSuccess(data.message || 'Registrierung erfolgreich! Sie können sich jetzt anmelden.');
+        // Optional: Benutzer direkt einloggen
+        // const signInResult = await signIn('credentials', {
+        //   redirect: false,
+        //   email,
+        //   password,
+        //   callbackUrl: '/dashboard'
+        // });
+        // if (signInResult?.ok) {
+        //   router.replace('/dashboard');
+        // } else {
+        //   setError(signInResult?.error || 'Anmeldung nach Registrierung fehlgeschlagen.');
+        // }
+        setName('');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        // Nach Erfolg zur Login-Seite weiterleiten, damit der Benutzer sich anmelden kann
+        setTimeout(() => router.push('/login'), 3000); 
       }
     } catch (err) {
-      console.error("Registrierungs-Fehler (catch)", err);
-      setError("Ein Fehler ist bei der Registrierung aufgetreten.");
-    } finally {
-      setIsLoading(false);
+      console.error('Registrierungsfehler:', err);
+      setError('Ein unerwarteter Fehler ist aufgetreten.');
     }
+    setIsLoading(false);
   };
 
+  if (!enableLocalRegistration || status === 'authenticated') {
+    // Zeige nichts oder Ladeindikator, während die Weiterleitung im useEffect stattfindet
+    return <p className="text-center mt-10">Lade...</p>; 
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Registrieren</h1>
-        <form onSubmit={handleSubmit}>
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 border border-red-400 rounded-md">
-              {error}
-            </div>
-          )}
-          {successMessage && (
-            <div className="mb-4 p-3 bg-green-100 text-green-700 border border-green-400 rounded-md">
-              {successMessage}
-            </div>
-          )}
-          <div className="mb-4">
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Name (Optional)
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="Ihr Name"
-            />
-          </div>
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              E-Mail-Adresse
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="ihre@email.de"
-            />
-          </div>
-          <div className="mb-4">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Passwort
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="Mindestens 6 Zeichen"
-            />
-          </div>
-          <div className="mb-6">
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              Passwort bestätigen
-            </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="Passwort erneut eingeben"
-            />
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold text-center text-gray-900">Konto erstellen</h2>
+        
+        {error && <p className="text-sm text-red-600 bg-red-100 p-3 rounded-md text-center">{error}</p>}
+        {success && <p className="text-sm text-green-600 bg-green-100 p-3 rounded-md text-center">{success}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Vollständiger Name</label>
+            <input id="name" type="text" required value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
           </div>
           <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Registrieren...' : 'Konto erstellen'}
-            </button>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">E-Mail-Adresse</label>
+            <input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
           </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Passwort</label>
+            <input id="password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Passwort bestätigen</label>
+            <input id="confirmPassword" type="password" autoComplete="new-password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+          </div>
+          <button type="submit" disabled={isLoading} className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
+            {isLoading ? 'Registriere...' : 'Registrieren'}
+          </button>
         </form>
-        <p className="mt-6 text-center text-sm text-gray-600">
+        <p className="mt-4 text-sm text-center text-gray-600">
           Bereits ein Konto?{' '}
-          <a href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+          <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
             Anmelden
-          </a>
+          </Link>
         </p>
       </div>
     </div>
