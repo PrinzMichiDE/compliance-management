@@ -43,21 +43,11 @@ export const config = {
      * - _next/image (Bildoptimierungs-Dateien)
      * - favicon.ico (Favicon-Datei)
      * - /login (Login-Seite)
-     * - /register (Registrierungs-Seite, falls vorhanden)
-     * - / (Startseite, falls diese öffentlich sein soll)
-     * - /public (Ordner für öffentliche Assets, falls anders strukturiert)
+     * - /register (Registrierungs-Seite)
+     * - / (Startseite)
+     * - Alles innerhalb /img, /fonts, /styles (Beispiele für öffentliche Asset-Ordner unter /public)
+     *   Diese werden typischerweise ohnehin nicht von der Middleware erfasst, aber zur Klarheit.
      */
-    // Schütze das Dashboard und Admin-Bereich
-    '/dashboard/:path*',
-    '/admin/:path*',
-    '/rule-manager/:path*',
-    // Füge hier weitere zu schützende Pfade hinzu
-    // Beispiel: '/profile',
-
-    // Schließe öffentliche Seiten explizit aus, falls der Matcher zu gierig ist
-    // oder verwende einen negativen Lookahead im Regex, um spezifische Pfade auszuschließen.
-    // Die oben genannten Pfade sind Standardausschlüsse von `next-auth/middleware`
-    // wenn keine expliziten Seiten in `pages` in `authOptions` konfiguriert sind.
-    // Da wir `pages: { signIn: '/login' }` haben, leitet es standardmäßig zu '/login' um.
+    '/((?!api|_next/static|_next/image|favicon.ico|login|register|$|img/|fonts/|styles/).*)',
   ],
 }; 
