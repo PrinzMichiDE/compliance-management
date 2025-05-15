@@ -10,13 +10,16 @@
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.9.1",
-    "@heroicons/react": "^2.1.4",
+    "@emotion/react": "^11.14.0",
+    "@heroicons/react": "^2.2.0",
     "bcryptjs": "^3.0.2",
     "mongodb": "^6.16.0",
     "next": "15.3.2",
-    "next-auth": "^4.24.11",
+    "next-auth": "^4.24.7",
+    "pdf-parse": "^1.1.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

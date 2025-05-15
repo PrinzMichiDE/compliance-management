@@ -34,7 +34,7 @@ export default function LoginPage() {
     const fetchProvidersAndSettings = async () => {
       const res = await getProviders();
       setProviders(res);
-      setEnableLocalRegistration(process.env.NEXT_PUBLIC_ENABLE_LOCAL_REGISTRATION === 'true');
+      setEnableLocalRegistration(process.env.ENABLE_LOCAL_REGISTRATION === 'true');
     };
     fetchProvidersAndSettings();
   }, []);

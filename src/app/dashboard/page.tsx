@@ -1,45 +1,49 @@
 'use client';
 
 import React from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { UserRole } from '@/types/enums';
 import { userHasRoles } from '@/lib/authUtils';
-import {
-  BookOpenIcon,
-  ShieldCheckIcon,
-  ClipboardIcon,
-  AcademicCapIcon,
-  CogIcon
-} from '@heroicons/react/24/outline';
-import AppLayout from '@/components/AppLayout';
+import Link from 'next/link';
+import { BookOpenIcon, ShieldCheckIcon, ClipboardDocumentListIcon, AcademicCapIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 
-interface DashboardCardProps {
-  title: string;
-  description: string;
-  href: string;
-  icon?: React.ReactElement<{ className?: string }>;
-  allowedRoles?: UserRole[];
-  userRoles?: UserRole[];
-}
-
-const DashboardCard: React.FC<DashboardCardProps> = ({ title, description, href, icon, allowedRoles, userRoles }) => {
-  if (allowedRoles && !userHasRoles(userRoles, allowedRoles)) {
-    return null; // Karte nicht anzeigen, wenn der Benutzer nicht die erforderlichen Rollen hat
-  }
-
-  return (
-    <Link href={href} className="block p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out transform hover:-translate-y-1 group">
-      <div className="flex items-center space-x-3 mb-3">
-        {icon && <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 group-hover:bg-indigo-200 transition-colors duration-300">{React.cloneElement(icon, { className: "h-6 w-6" })}</div>} 
-        <h3 className="text-xl font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors duration-300">{title}</h3>
-      </div>
-      <p className="text-slate-600">{description}</p>
-    </Link>
-  );
-};
+const cardDefs = [
+  {
+    title: 'Regelmanagement',
+    description: 'Regeln erstellen, anzeigen, bearbeiten und verwalten.',
+    href: '/rule-manager',
+    icon: <BookOpenIcon className="h-7 w-7 text-indigo-600" />, 
+    allowedRoles: [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_READ, UserRole.COMPLIANCE_MANAGER_WRITE],
+  },
+  {
+    title: 'Risikomanagement',
+    description: 'Risiken identifizieren, bewerten, behandeln und überwachen.',
+    href: '/risk-manager',
+    icon: <ShieldCheckIcon className="h-7 w-7 text-indigo-600" />, 
+    allowedRoles: [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_READ, UserRole.COMPLIANCE_MANAGER_WRITE, UserRole.RISK_MANAGER],
+  },
+  {
+    title: 'Meine Aufgaben',
+    description: 'Übersicht über Ihre anstehenden Aufgaben und Verantwortlichkeiten.',
+    href: '/dashboard/my-tasks',
+    icon: <ClipboardDocumentListIcon className="h-7 w-7 text-indigo-600" />, 
+  },
+  {
+    title: 'Schulungen',
+    description: 'Zugriff auf zugewiesene Schulungen und Lernmaterialien.',
+    href: '/dashboard/trainings',
+    icon: <AcademicCapIcon className="h-7 w-7 text-indigo-600" />, 
+  },
+  {
+    title: 'Admin-Panel',
+    description: 'Systemkonfiguration und Benutzerverwaltung.',
+    href: '/admin',
+    icon: <Cog6ToothIcon className="h-7 w-7 text-indigo-600" />, 
+    allowedRoles: [UserRole.ADMIN],
+  },
+];
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -59,63 +63,56 @@ export default function DashboardPage() {
     return <div className="min-h-screen flex items-center justify-center"><p className="text-lg text-slate-600">Bitte zuerst anmelden.</p></div>;
   }
 
-  const currentUserRoles = session.user?.roles;
-
-  // Definition der Dashboard-Kacheln
-  const cards: Omit<DashboardCardProps, 'userRoles'>[] = [
-    {
-      title: 'Regelmanagement',
-      description: 'Regeln erstellen, anzeigen, bearbeiten und verwalten.',
-      href: '/rule-manager',
-      icon: <BookOpenIcon />,
-      allowedRoles: [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_READ, UserRole.COMPLIANCE_MANAGER_WRITE],
-    },
-    {
-      title: 'Risikomanagement',
-      description: 'Risiken identifizieren, bewerten, behandeln und überwachen.',
-      href: '/risk-manager',
-      icon: <ShieldCheckIcon />,
-      allowedRoles: [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_READ, UserRole.COMPLIANCE_MANAGER_WRITE, UserRole.RISK_MANAGER],
-    },
-    {
-      title: 'Meine Aufgaben',
-      description: 'Übersicht über Ihre anstehenden Aufgaben und Verantwortlichkeiten.',
-      href: '/dashboard/my-tasks',
-      icon: <ClipboardIcon />,
-    },
-    {
-      title: 'Schulungen',
-      description: 'Zugriff auf zugewiesene Schulungen und Lernmaterialien.',
-      href: '/dashboard/trainings',
-      icon: <AcademicCapIcon />,
-    },
-    {
-      title: 'Admin-Panel',
-      description: 'Systemkonfiguration und Benutzerverwaltung.',
-      href: '/admin',
-      icon: <CogIcon />,
-      allowedRoles: [UserRole.ADMIN],
-    },
-  ];
+  const user = session.user;
+  const userRoles: string[] = user?.roles || [];
 
   return (
-    <AppLayout>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-slate-600">
-            Hier ist eine Übersicht Ihrer verfügbaren Module und Funktionen.
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200">
+      {/* Header */}
+      <header className="w-full bg-white shadow-sm py-4 px-6 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl font-bold text-indigo-700 tracking-tight">Compliance Dashboard</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-lg">
+            {user.name?.[0] || '?'}
+          </span>
+          <span className="font-medium text-slate-800 mr-2 cursor-pointer hover:underline" onClick={() => router.push('/profile')}>{user.name}</span>
+          {userRoles.map((role) => (
+            <span key={role} className="bg-indigo-600 text-white text-xs font-semibold px-2 py-1 rounded-full ml-1">
+              {role}
+            </span>
+          ))}
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="ml-4 px-3 py-1.5 bg-slate-200 hover:bg-red-600 hover:text-white text-slate-700 rounded transition font-semibold text-sm"
+          >
+            Abmelden
+          </button>
+        </div>
+      </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {cards.map((card) => (
-          <DashboardCard 
-            key={card.title} 
-            {...card} 
-            userRoles={currentUserRoles} 
-          />
-        ))}
-      </div>
-    </AppLayout>
+      {/* Content */}
+      <main className="max-w-7xl mx-auto px-4 py-10">
+        <h1 className="text-3xl font-bold text-slate-800 mb-2">Dashboard</h1>
+        <p className="text-slate-600 mb-8">Hier ist eine Übersicht Ihrer verfügbaren Module und Funktionen.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {cardDefs.map((card) => {
+            if (card.allowedRoles && !userRoles.some(role => card.allowedRoles?.includes(role))) {
+              return null;
+            }
+            return (
+              <Link key={card.title} href={card.href} className="block group rounded-xl bg-white shadow-md hover:shadow-lg transition-shadow duration-200 p-6 border border-slate-100 hover:border-indigo-300">
+                <div className="flex items-center space-x-3 mb-4">
+                  {card.icon}
+                  <span className="text-lg font-semibold text-slate-800 group-hover:text-indigo-700 transition-colors duration-200">{card.title}</span>
+                </div>
+                <p className="text-slate-600 text-sm">{card.description}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </main>
+    </div>
   );
 } 

@@ -91,6 +91,7 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;
+        session.user.roles = token.role ? [token.role] : [];
       }
       return session;
     },

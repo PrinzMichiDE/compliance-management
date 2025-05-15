@@ -4,6 +4,9 @@ import clientPromise from '@/lib/mongodb';
 import { Rule } from '@/types/rule';
 import { ObjectId } from 'mongodb';
 import { UserRole } from '@/types/enums';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { revalidatePath } from 'next/navigation';
 
 const secret = process.env.AUTH_SECRET;
 
@@ -37,35 +40,25 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/rules - Neue Regel erstellen
-export async function POST(req: NextRequest) {
-  const token = await getToken({ req, secret });
-  if (!token || !token.id) {
-    return NextResponse.json({ message: 'Nicht authentifiziert oder Benutzer-ID fehlt' }, { status: 401 });
-  }
-
-  // Rollenbasierte Berechtigung für Erstellung
-  const allowedWriteRoles = [
-    UserRole.ADMIN,
-    UserRole.COMPLIANCE_MANAGER_FULL,
-    UserRole.COMPLIANCE_MANAGER_WRITE
-  ];
-  if (!token.role || !allowedWriteRoles.includes(token.role as UserRole)) {
-    return NextResponse.json({ message: 'Nicht autorisiert zum Erstellen von Regeln' }, { status: 403 });
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const { name, description, ruleId, status, category, priority, targetAudience, linkedDocuments, tags, validFrom, validTo, customFields } = body as Partial<Rule>;
-
-    if (!name || !description || !ruleId || !status) {
-      return NextResponse.json({ message: 'Name, Beschreibung, RuleId und Status sind erforderlich' }, { status: 400 });
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.id || !hasRequiredRole(session.user.roles, [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_WRITE])) {
+      return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    const client = await clientPromise;
-    const db = client.db();
-    const rulesCollection = db.collection('rules');
+    const body = await request.json();
+    const { ruleId, name, description, status, category, priority, targetAudience, linkedDocuments, tags, validFrom, validTo, customFields, embedding } = body as Partial<Rule>;
 
-    // Prüfen, ob ruleId bereits existiert
+    if (!ruleId || !name || !description || !status) {
+      return NextResponse.json({ message: 'Pflichtfelder fehlen (Regel-ID, Name, Beschreibung, Status)' }, { status: 400 });
+    }
+
+    await clientPromise;
+    const db = (await clientPromise).db(process.env.MONGODB_DB_NAME);
+    const rulesCollection = db.collection<Rule>('rules');
+
+    // Check for duplicate ruleId
     const existingRuleById = await rulesCollection.findOne({ ruleId });
     if (existingRuleById) {
       return NextResponse.json({ message: `Eine Regel mit der ID '${ruleId}' existiert bereits.` }, { status: 409 });
@@ -75,31 +68,35 @@ export async function POST(req: NextRequest) {
       ruleId,
       name,
       description,
-      status: status || 'Entwurf',
+      status,
       category: category || undefined,
-      priority: priority || 'Mittel',
+      priority: priority || undefined,
       targetAudience: targetAudience || [],
-      responsiblePersonIds: [], // Vorerst leer, kann später über PUT aktualisiert werden
       linkedDocuments: linkedDocuments || [],
       tags: tags || [],
-      version: 1,
-      createdBy: new ObjectId(token.id as string), // token.id ist die ObjectId des Users als string
-      createdAt: new Date(),
-      updatedAt: new Date(),
       validFrom: validFrom ? new Date(validFrom) : undefined,
       validTo: validTo ? new Date(validTo) : undefined,
-      customFields: customFields || {},
+      customFields: customFields || undefined,
+      embedding: embedding || undefined,
+      version: 1,
+      createdBy: new ObjectId(session.user.id),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const result = await rulesCollection.insertOne(newRule as Rule);
 
-    if (result.insertedId) {
-      // Hole das erstellte Dokument zurück, um es in der Antwort zu senden
-      const createdRule = await rulesCollection.findOne({ _id: result.insertedId });
-      return NextResponse.json(createdRule, { status: 201 });
-    } else {
-      return NextResponse.json({ message: 'Regelerstellung fehlgeschlagen' }, { status: 500 });
+    if (!result.insertedId) {
+      return NextResponse.json({ message: 'Fehler beim Erstellen der Regel in der Datenbank.' }, { status: 500 });
     }
+    
+    // Revalidate path for on-demand ISR
+    revalidatePath('/rule-manager');
+    revalidatePath(`/rule-manager/${ruleId}`);
+
+    // Anstatt das ganze Objekt zurückzugeben, nur eine Erfolgsmeldung oder die ID
+    return NextResponse.json({ message: 'Regel erfolgreich erstellt', ruleInternalId: result.insertedId }, { status: 201 });
+
   } catch (error) {
     console.error('Fehler beim Erstellen der Regel:', error);
     // Spezifischere Fehlermeldungen für z.B. ungültige ObjectId

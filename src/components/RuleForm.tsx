@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Rule } from '@/types/rule';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface RuleFormData {
   ruleId: string;
@@ -104,89 +105,112 @@ const RuleForm: React.FC<RuleFormProps> = ({
     await onSubmit(dataToSubmit);
   };
 
-  const inputClass = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm";
-  const labelClass = "block text-sm font-medium text-gray-700";
+  const inputBaseClass = "block w-full rounded-md border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6";
+  const labelClass = "block text-sm font-medium leading-6 text-slate-800";
+  const requiredMark = <span className="text-red-600">*</span>;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
         <div>
-          <label htmlFor="ruleId" className={labelClass}>Regel-ID (Benutzerdefiniert) <span className="text-red-500">*</span></label>
-          <input type="text" name="ruleId" id="ruleId" value={formData.ruleId} onChange={handleChange} className={inputClass} required />
+          <label htmlFor="ruleId" className={labelClass}>Regel-ID (Benutzerdefiniert) {requiredMark}</label>
+          <div className="mt-2">
+            <input type="text" name="ruleId" id="ruleId" value={formData.ruleId} onChange={handleChange} className={inputBaseClass} required />
+          </div>
         </div>
         <div>
-          <label htmlFor="name" className={labelClass}>Name der Regel <span className="text-red-500">*</span></label>
-          <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={inputClass} required />
+          <label htmlFor="name" className={labelClass}>Name der Regel {requiredMark}</label>
+          <div className="mt-2">
+            <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={inputBaseClass} required />
+          </div>
         </div>
       </div>
 
       <div>
-        <label htmlFor="description" className={labelClass}>Beschreibung <span className="text-red-500">*</span></label>
-        <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={4} className={inputClass} required />
+        <label htmlFor="description" className={labelClass}>Beschreibung {requiredMark}</label>
+        <div className="mt-2">
+          <textarea name="description" id="description" value={formData.description} onChange={handleChange} rows={4} className={inputBaseClass} required />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
         <div>
-          <label htmlFor="status" className={labelClass}>Status <span className="text-red-500">*</span></label>
-          <select name="status" id="status" value={formData.status} onChange={handleChange} className={inputClass} required>
-            <option value="Entwurf">Entwurf</option>
-            <option value="Aktiv">Aktiv</option>
-            <option value="Inaktiv">Inaktiv</option>
-            <option value="Archiviert">Archiviert</option>
-          </select>
+          <label htmlFor="status" className={labelClass}>Status {requiredMark}</label>
+          <div className="mt-2">
+            <select name="status" id="status" value={formData.status} onChange={handleChange} className={inputBaseClass} required>
+              <option value="Entwurf">Entwurf</option>
+              <option value="Aktiv">Aktiv</option>
+              <option value="Inaktiv">Inaktiv</option>
+              <option value="Archiviert">Archiviert</option>
+            </select>
+          </div>
         </div>
         <div>
           <label htmlFor="category" className={labelClass}>Kategorie</label>
-          <input type="text" name="category" id="category" value={formData.category || ''} onChange={handleChange} className={inputClass} />
+          <div className="mt-2">
+            <input type="text" name="category" id="category" value={formData.category || ''} onChange={handleChange} className={inputBaseClass} />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
         <div>
           <label htmlFor="priority" className={labelClass}>Priorität</label>
-          <select name="priority" id="priority" value={formData.priority || 'Mittel'} onChange={handleChange} className={inputClass}>
-            <option value="Hoch">Hoch</option>
-            <option value="Mittel">Mittel</option>
-            <option value="Niedrig">Niedrig</option>
-          </select>
+          <div className="mt-2">
+            <select name="priority" id="priority" value={formData.priority || 'Mittel'} onChange={handleChange} className={inputBaseClass}>
+              <option value="Hoch">Hoch</option>
+              <option value="Mittel">Mittel</option>
+              <option value="Niedrig">Niedrig</option>
+            </select>
+          </div>
         </div>
         <div>
           <label htmlFor="tags" className={labelClass}>Tags (kommagetrennt)</label>
-          <input type="text" name="tags" id="tags" value={formData.tags.join(', ')} onChange={(e) => handleArrayChange(e, 'tags')} className={inputClass} />
+          <div className="mt-2">
+            <input type="text" name="tags" id="tags" value={formData.tags.join(', ')} onChange={(e) => handleArrayChange(e, 'tags')} className={inputBaseClass} />
+          </div>
         </div>
       </div>
       
       <div>
         <label htmlFor="targetAudience" className={labelClass}>Zielgruppe (kommagetrennt)</label>
-        <input type="text" name="targetAudience" id="targetAudience" value={formData.targetAudience.join(', ')} onChange={(e) => handleArrayChange(e, 'targetAudience')} className={inputClass} />
+        <div className="mt-2">
+          <input type="text" name="targetAudience" id="targetAudience" value={formData.targetAudience.join(', ')} onChange={(e) => handleArrayChange(e, 'targetAudience')} className={inputBaseClass} />
+        </div>
       </div>
 
       <div>
         <label htmlFor="linkedDocuments" className={labelClass}>Verknüpfte Dokumente (URLs, kommagetrennt)</label>
-        <input type="text" name="linkedDocuments" id="linkedDocuments" value={formData.linkedDocuments.join(', ')} onChange={(e) => handleArrayChange(e, 'linkedDocuments')} className={inputClass} />
+        <div className="mt-2">
+          <input type="text" name="linkedDocuments" id="linkedDocuments" value={formData.linkedDocuments.join(', ')} onChange={(e) => handleArrayChange(e, 'linkedDocuments')} className={inputBaseClass} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
         <div>
           <label htmlFor="validFrom" className={labelClass}>Gültig von</label>
-          <input type="date" name="validFrom" id="validFrom" value={formData.validFrom || ''} onChange={handleChange} className={inputClass} />
+          <div className="mt-2">
+            <input type="date" name="validFrom" id="validFrom" value={formData.validFrom || ''} onChange={handleChange} className={`${inputBaseClass} dark:[color-scheme:dark]`} />
+          </div>
         </div>
         <div>
           <label htmlFor="validTo" className={labelClass}>Gültig bis</label>
-          <input type="date" name="validTo" id="validTo" value={formData.validTo || ''} onChange={handleChange} className={inputClass} />
+          <div className="mt-2">
+            <input type="date" name="validTo" id="validTo" value={formData.validTo || ''} onChange={handleChange} className={`${inputBaseClass} dark:[color-scheme:dark]`} />
+          </div>
         </div>
       </div>
       
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+      <div className="p-4 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-700">
         <p><strong>Hinweis:</strong> Felder wie Version, Ersteller, Erstellungsdatum, etc. werden automatisch vom System verwaltet.</p>
       </div>
 
-      <div className="flex justify-end space-x-3">
+      <div className="flex justify-end items-center space-x-4 pt-2">
         {onCancel && (
           <button 
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
             disabled={isSubmitting}
           >
             Abbrechen
@@ -194,9 +218,10 @@ const RuleForm: React.FC<RuleFormProps> = ({
         )}
         <button 
           type="submit"
-          className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+          className="inline-flex justify-center items-center px-6 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
           disabled={isSubmitting}
         >
+          {isSubmitting && <ArrowPathIcon className="animate-spin h-4 w-4 mr-2" />}
           {isSubmitting ? 'Wird gespeichert...' : submitButtonText}
         </button>
       </div>

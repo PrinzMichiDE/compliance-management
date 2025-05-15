@@ -20,4 +20,5 @@ export interface Rule {
   validFrom?: Date;
   validTo?: Date;
   customFields?: Record<string, unknown>;
+  embedding?: number[]; // Vektor für semantische Suche
 } 

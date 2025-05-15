@@ -34,3 +34,24 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+
+# MongoDB
+MONGODB_URI="mongodb+srv://"
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET="" # Bitte ändern Sie dies in einen sicheren Wert
+
+# Anwendung
+NODE_ENV=development
+
+NEXT_PUBLIC_ENABLE_LOCAL_REGISTRATION=true
+ENABLE_LOCAL_REGISTRATION=true
+
+
+# .env.local
+OPENAI_API_KEY=""
+OPENAI_CUSTOM_ENDPOINT_URL=""
+OPENAI_MODEL_NAME="gpt-4.1-nano"
+OPENAI_EMBEDDING_MODEL_NAME="text-embedding-3-large"

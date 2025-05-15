@@ -4,10 +4,10 @@ import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { UserRole } from '@/types/enums'; // Pfad angepasst
 
-// Helper function to check for allowed roles
-const hasAllowedRole = (userRoles: UserRole[] | undefined, allowedRoles: UserRole[]): boolean => {
+// Helper function to check for allowed roles (case-insensitive)
+const hasAllowedRole = (userRoles: string[] | undefined, allowedRoles: string[]): boolean => {
   if (!userRoles) return false;
-  return userRoles.some(role => allowedRoles.includes(role)); // Kein `as UserRole` mehr nötig, wenn Typ korrekt ist
+  return userRoles.some(role => allowedRoles.map(r => r.toLowerCase()).includes(role.toLowerCase()));
 };
 
 export async function POST(request: Request) {
@@ -17,8 +17,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 });
   }
 
-  const userRoles = session.user.roles; // Sollte jetzt UserRole[] | undefined sein
-  const allowedRolesCreate: UserRole[] = [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_WRITE];
+  const userRoles = session.user.roles;
+  // Erlaubte Werte: 'Admin', 'Compliancer Manager FULL', 'Compliancer Manager WRITE'
+  const allowedRolesCreate = ['Admin', 'Compliancer Manager FULL', 'Compliancer Manager WRITE'];
 
   if (!hasAllowedRole(userRoles, allowedRolesCreate)) {
     return NextResponse.json({ message: 'Zugriff verweigert für POST' }, { status: 403 });
@@ -66,11 +67,8 @@ export async function GET() {
   }
 
   const userRoles = session.user.roles;
-  const allowedRolesRead: UserRole[] = [
-    UserRole.ADMIN,
-    UserRole.COMPLIANCE_MANAGER_FULL,
-    UserRole.COMPLIANCE_MANAGER_READ,
-  ];
+  // Erlaubte Werte: 'Admin', 'Compliancer Manager FULL', 'Compliancer Manager READ'
+  const allowedRolesRead = ['Admin', 'Compliancer Manager FULL', 'Compliancer Manager READ'];
   
   if (!hasAllowedRole(userRoles, allowedRolesRead)) {
     return NextResponse.json({ message: 'Zugriff verweigert für GET' }, { status: 403 });

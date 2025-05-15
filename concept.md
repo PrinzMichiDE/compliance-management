@@ -28,69 +28,155 @@ KI-gestützte Detektion von Kontrollabweichungen
 Auto-Vervollständigung bei Dokumenten (Richtlinien, Audit-Protokolle etc.)
 
 🧱 Hauptmodule
-1. Risikomanagement (AI-unterstützt)
-Erkennung potenzieller Risiken aus Dokumenten oder Beschreibungen via GPT
 
-Bewertungsvorschläge durch KI (Eintrittswahrscheinlichkeit, Schadenshöhe)
+### 1. Risikomanagement (AI-unterstützt)
 
-Automatisiertes Clustering ähnlicher Risiken
+**Ziel:**  
+Automatisierte Identifikation, Bewertung und Verwaltung von Risiken zur Steigerung der Compliance und Reduktion manueller Aufwände.
 
-Risikomatrix und Maßnahmenpläne automatisch generiert
+**Kernfunktionen:**  
+- Erfassung von Risiken per Freitext, Datei-Upload oder strukturiertem Formular
+- KI-gestützte Kategorisierung und Priorisierung (Eintrittswahrscheinlichkeit, Schadenshöhe)
+- Automatisches Clustering ähnlicher Risiken
+- Generierung von Risikomatrix und Maßnahmenplänen
+- Automatische Zuordnung von Risiken an Verantwortliche
+- Historisierung und Nachverfolgung von Risikoveränderungen
 
-Automatische Zuordnung von Risiken an Verantwortliche
+**Nutzerperspektive (Next.js):**  
+- Moderne, responsive Eingabemaske für neue Risiken (Formular mit Validierung, Datei-Upload)
+- Sofortige Anzeige von KI-Vorschlägen (z. B. als Sidepanel oder Modal)
+- Interaktive Risikomatrix (Heatmap-Komponente, z. B. mit recharts oder d3.js)
+- Aufgaben- und Erinnerungsfunktion (z. B. To-Do-Listen, Benachrichtigungen)
+- Übersichtliche Listen- und Detailansichten für Risiken und Maßnahmen
 
-2. Compliance-Kontrollen
-KI-gestützte Erstellung von Kontrollzielen anhand von Vorschriften
+**Technische Umsetzung:**  
+- **Frontend:** Next.js, React, Zustand/Redux für State-Management, UI-Bibliothek nach Wahl
+- **Backend:** REST-API (z. B. FastAPI oder Express), Anbindung an OpenAI GPT-4o
+- **Datenbank:** PostgreSQL/MongoDB
+- **Datei-Uploads:** Speicherung in Cloud (z. B. Azure Blob, AWS S3)
+- **Authentifizierung:** z. B. NextAuth.js mit Azure AD
 
-Automatische Verknüpfung mit Risiken und Maßnahmen
+---
 
-Erkennung von Abweichungen durch Datenanalyse
+### 2. Compliance-Kontrollen
 
-Vorschläge für Gegenmaßnahmen inkl. Dokumentation durch die KI
+**Ziel:**  
+Automatisierte Erstellung, Überwachung und Dokumentation von Kontrollen zur Einhaltung interner und externer Vorgaben.
 
-Vollautomatische Kontrollhistorie
+**Kernfunktionen:**  
+- KI-gestützte Generierung von Kontrollzielen aus Vorschriften
+- Automatische Verknüpfung mit Risiken und Maßnahmen
+- Erkennung und Visualisierung von Abweichungen
+- Vorschläge für Gegenmaßnahmen inkl. Dokumentation
+- Vollautomatische Kontrollhistorie
 
-3. Audit-Management
-KI-Unterstützung bei Auditplanung (Termine, Prüffelder, Prüfer)
+**Nutzerperspektive (Next.js):**  
+- Übersichtliche Kontrollübersicht (Tabellen, Filter, Statusanzeigen)
+- Detailansicht für jede Kontrolle mit Historie und Verknüpfungen
+- Automatische Benachrichtigungen bei Abweichungen
+- Einfache Zuordnung von Maßnahmen und Verantwortlichen
 
-Automatisierte Generierung von Auditfragen
+**Technische Umsetzung:**  
+- **Frontend:** Next.js, dynamische Tabellen und Detailseiten, Benachrichtigungs-UI
+- **Backend:** REST-API, KI-Integration für Ziel- und Maßnahmenvorschläge
+- **Datenbank:** Modell für Kontrollen, Verknüpfungen, Historie
 
-KI-Schreibassistent für Auditberichte
+---
 
-Maßnahmenverfolgung inkl. Fortschritts- und Wirksamkeitsanalyse durch GPT
+### 3. Audit-Management
 
-Compliance-Level-Messung aus Auditdaten
+**Ziel:**  
+Effiziente Planung, Durchführung und Nachverfolgung von Audits mit KI-Unterstützung.
 
-4. Dokumentenmanagement
-Zentrale, KI-indizierte Dokumentenablage
+**Kernfunktionen:**  
+- KI-gestützte Auditplanung (Termine, Prüffelder, Prüfer)
+- Automatisierte Generierung von Auditfragen
+- KI-Schreibassistent für Auditberichte
+- Maßnahmenverfolgung und Wirksamkeitsanalyse
+- Compliance-Level-Messung
 
-GPT-unterstützte Suche & semantische Analyse von Richtlinien
+**Nutzerperspektive (Next.js):**  
+- Kalender- und Aufgabenansicht für Audits
+- Interaktive Checklisten und Fragebögen
+- Editor für Auditberichte mit KI-Vorschlägen
+- Fortschrittsanzeigen und Compliance-Level-Dashboards
 
-Automatisches Erstellen & Versionieren von Dokumenten (z. B. Richtlinienvorschläge)
+**Technische Umsetzung:**  
+- **Frontend:** Next.js, Kalender-Komponenten, Editoren, Dashboards
+- **Backend:** REST-API, KI-Integration für Fragen und Berichte
+- **Datenbank:** Audits, Fragen, Berichte, Maßnahmen
 
-KI-Freigabevorschläge basierend auf Inhalt & Zielgruppe
+---
 
-Zugriffskontrolle mit automatischer Rollenprüfung
+### 4. Dokumentenmanagement
 
-5. Schulungsmanagement & Quiz
-KI-generierter Fragenpool mit kontextueller Gewichtung
+**Ziel:**  
+Zentrale, KI-gestützte Verwaltung und Versionierung von Compliance-Dokumenten.
 
-Quartalsweises Quiz mit Zufallsauswahl & Lernverlaufsanalyse
+**Kernfunktionen:**  
+- KI-indizierte Dokumentenablage
+- GPT-unterstützte Suche & Analyse
+- Automatisches Erstellen & Versionieren von Dokumenten
+- KI-Freigabevorschläge
+- Zugriffskontrolle mit Rollenprüfung
 
-GPT-Feedback auf falsche Antworten
+**Nutzerperspektive (Next.js):**  
+- Dokumentenübersicht mit Such- und Filterfunktion
+- Detailansicht mit Versionierung und Freigabe-Workflow
+- Upload- und Download-Funktionalität
+- Rollenbasierte Sichtbarkeit
 
-KI-basiertes Monitoring zur Schulungseffektivität
+**Technische Umsetzung:**  
+- **Frontend:** Next.js, File-Upload-Komponenten, Such-UI, Freigabe-Workflows
+- **Backend:** REST-API, KI-Indexierung, Versionierung
+- **Dateispeicher:** Cloud-Storage
 
-Automatische Erinnerungen, Eskalation bei Wiederholungstätern
+---
 
-6. Berichtswesen & Dashboards
-Live-Dashboards mit GPT-generierten Zusammenfassungen
+### 5. Schulungsmanagement & Quiz
 
-KI-gestützte Analyse von Risiken, Schulungsergebnissen, Audits
+**Ziel:**  
+Automatisierte, KI-gestützte Schulungen und Wissensüberprüfung.
 
-Export in PDF, Excel inkl. GPT-Kommentierung
+**Kernfunktionen:**  
+- KI-generierter Fragenpool
+- Quartalsweises Quiz mit Zufallsauswahl
+- GPT-Feedback auf falsche Antworten
+- Monitoring der Schulungseffektivität
+- Automatische Erinnerungen und Eskalation
 
-Reporting für Management, Datenschutz, interne Revision
+**Nutzerperspektive (Next.js):**  
+- Quiz-Interface mit Multiple-Choice, Freitext, Feedback
+- Fortschrittsanzeige und Lernverlauf
+- Erinnerungs- und Eskalationsbenachrichtigungen
+
+**Technische Umsetzung:**  
+- **Frontend:** Next.js, Quiz-Komponenten, Fortschrittsanzeigen
+- **Backend:** REST-API, KI-Fragengenerierung, Monitoring
+- **Datenbank:** Schulungen, Quiz, Ergebnisse
+
+---
+
+### 6. Berichtswesen & Dashboards
+
+**Ziel:**  
+Transparente, KI-gestützte Auswertungen und Berichte für alle Stakeholder.
+
+**Kernfunktionen:**  
+- Live-Dashboards mit GPT-generierten Zusammenfassungen
+- Analyse von Risiken, Schulungen, Audits
+- Export in PDF, Excel inkl. KI-Kommentierung
+- Zielgruppenspezifisches Reporting
+
+**Nutzerperspektive (Next.js):**  
+- Interaktive Dashboards mit Filter- und Drilldown-Funktionen
+- Export-Buttons für Berichte
+- Rollenbasierte Sicht auf relevante Kennzahlen
+
+**Technische Umsetzung:**  
+- **Frontend:** Next.js, Dashboard-Komponenten, Export-Funktionen
+- **Backend:** REST-API, KI-Analyse, Reporting
+- **Datenbank:** Reporting-Modelle, Exporte
 
 🔐 Rollen & Rechte
 Admin, Compliance Officer, Auditor, Fachbereichsleitung, Mitarbeitende
@@ -179,8 +265,7 @@ Automatisiertes Mapping und Monitoring der Unternehmensrichtlinien, -prozesse un
 
 ## ⚙️ Technische Umsetzungsideen
 
-* **Backend:** NestJS-Service „norm-engine“ mit GPT-Unterstützung
-* **Frontend:** Vue-Komponente „Normvergleich“ mit Filteroption (Norm, Status, Bereich)
+
 * **KI-Modell:** GPT-4o für Textmapping & Vorschläge, ergänzt mit RAG (Retrieval Augmented Generation) zur Nutzung eigener Dokumente
 
 🧠 Erweiterungen mit KI-Mehrwert
