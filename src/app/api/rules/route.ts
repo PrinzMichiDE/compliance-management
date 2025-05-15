@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
-import { UserRole } from '@/types/enums';
 import clientPromise from '@/lib/mongodb';
-import { Rule } from '@/types/rule'; // Unser erstelltes Interface
+import { Rule } from '@/types/rule';
 import { ObjectId } from 'mongodb';
+import { UserRole } from '@/types/enums';
 
 const secret = process.env.AUTH_SECRET;
 
@@ -17,8 +15,13 @@ export async function GET(req: NextRequest) {
   }
 
   // Rollenbasierte Berechtigung für Lesezugriff implementieren
-  const allowedReadRoles = ['Admin', 'Compliancer Manager FULL', 'Compliancer Manager READ', 'Compliancer Manager WRITE'];
-  if (!token.role || !allowedReadRoles.includes(token.role as string)) {
+  const allowedReadRoles = [
+    UserRole.ADMIN,
+    UserRole.COMPLIANCE_MANAGER_FULL,
+    UserRole.COMPLIANCE_MANAGER_READ,
+    UserRole.COMPLIANCE_MANAGER_WRITE
+  ];
+  if (!token.role || !allowedReadRoles.includes(token.role as UserRole)) {
     return NextResponse.json({ message: 'Nicht autorisiert, Regeln anzuzeigen' }, { status: 403 });
   }
 
@@ -41,8 +44,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Rollenbasierte Berechtigung für Erstellung
-  const allowedWriteRoles = ['Admin', 'Compliancer Manager FULL', 'Compliancer Manager WRITE'];
-  if (!token.role || !allowedWriteRoles.includes(token.role)) {
+  const allowedWriteRoles = [
+    UserRole.ADMIN,
+    UserRole.COMPLIANCE_MANAGER_FULL,
+    UserRole.COMPLIANCE_MANAGER_WRITE
+  ];
+  if (!token.role || !allowedWriteRoles.includes(token.role as UserRole)) {
     return NextResponse.json({ message: 'Nicht autorisiert zum Erstellen von Regeln' }, { status: 403 });
   }
 

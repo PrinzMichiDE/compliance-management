@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { Risk, RiskProbability, RiskImpact, RiskStatus } from '@/types/risk'; // Pfad anpassen, falls Risk-Typen woanders liegen
-import { UserRole } from '@/next-auth'; // Pfad zu UserRole enum
+import { Risk, RiskProbability, RiskImpact, RiskStatus } from '@/types/risk';
+import { UserRole } from '@/types/enums';
 import { useRouter } from 'next/navigation';
 
 // Hilfsfunktion zur Überprüfung der Benutzerrollen
@@ -40,8 +40,8 @@ export default function RiskManagerPage() {
       }
       const data: Risk[] = await response.json();
       setRisks(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Ein unbekannter Fehler ist aufgetreten');
     }
     setIsLoading(false);
   };
@@ -62,8 +62,8 @@ export default function RiskManagerPage() {
       }
       // Risiken neu laden oder das gelöschte Risiko aus dem State entfernen
       setRisks(prevRisks => prevRisks.filter(risk => risk.riskId !== riskId));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Ein unbekannter Fehler ist aufgetreten');
     }
     setIsDeleting(null);
   };

@@ -38,7 +38,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
     if (!date) return '';
     try {
       return new Date(date).toISOString().split('T')[0];
-    } catch (error) {
+    } catch {
       return ''; // Fallback für ungültige Daten
     }
   };

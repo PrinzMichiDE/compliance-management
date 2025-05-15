@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
-import { Risk } from '@/types/risk'; // RiskProbability, RiskImpact, RiskStatus sind Teil von Risk oder werden direkt im Code verwendet
 import { UserRole } from '@/types/enums'; // Pfad angepasst
 
 // Helper function to check for allowed roles
@@ -60,7 +59,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 });

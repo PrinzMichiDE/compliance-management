@@ -41,8 +41,8 @@ export default function EditRiskPage() {
       }
       const data: Risk = await response.json();
       setRisk(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Ein unbekannter Fehler ist aufgetreten');
     } finally {
       setIsLoading(false);
     }
@@ -99,8 +99,8 @@ export default function EditRiskPage() {
       setTimeout(() => {
         router.push(`/risk-manager/${riskId}`); // Zurück zur Detailansicht
       }, 2000);
-    } catch (err: any) {
-      setFormError(err.message);
+    } catch (err: Error | unknown) {
+      setFormError(err instanceof Error ? err.message : 'Ein unbekannter Fehler ist aufgetreten');
     } finally {
       setIsSubmitting(false);
     }

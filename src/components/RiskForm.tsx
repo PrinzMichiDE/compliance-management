@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Risk, RiskProbability, RiskImpact, RiskStatus, MitigationMeasure, RiskFormData, MitigationMeasureFormData } from '@/types/risk';
+import { RiskProbability, RiskImpact, RiskStatus, RiskFormData, MitigationMeasureFormData } from '@/types/risk';
+import { calculateRiskScore } from '@/utils/risk';
 
 interface RiskFormProps {
   initialData?: RiskFormData;
   onSubmit: (data: RiskFormData) => Promise<void>;
-  isSubmitting: boolean;
+  isSubmitting?: boolean;
   submitButtonText?: string;
   onCancel?: () => void;
   formError?: string | null;
@@ -23,7 +24,7 @@ const initialMitigationMeasureTemplate: MitigationMeasureFormData = {
 export default function RiskForm({
   initialData,
   onSubmit,
-  isSubmitting,
+  isSubmitting = false,
   submitButtonText = 'Speichern',
   onCancel,
   formError
@@ -48,7 +49,7 @@ export default function RiskForm({
     };
     // Merge initialData with defaults. initialData takes precedence.
     // For mitigationMeasures, ensure it's an array and has at least one item.
-    let mergedData: RiskFormData = {
+    const mergedInitData: RiskFormData = {
          ...defaults, 
          ...(initialData || {}),
          mitigationMeasures: initialData?.mitigationMeasures && initialData.mitigationMeasures.length > 0 
@@ -57,19 +58,23 @@ export default function RiskForm({
     };
     
     // Format dates for input[type="date"]
-    if (mergedData.identifiedDate) {
-        mergedData.identifiedDate = new Date(mergedData.identifiedDate).toISOString().split('T')[0];
+    if (mergedInitData.identifiedDate) {
+        mergedInitData.identifiedDate = new Date(mergedInitData.identifiedDate).toISOString().split('T')[0];
     }
-    if (mergedData.reviewDate) {
-        mergedData.reviewDate = new Date(mergedData.reviewDate).toISOString().split('T')[0];
+    if (mergedInitData.reviewDate) {
+        mergedInitData.reviewDate = new Date(mergedInitData.reviewDate).toISOString().split('T')[0];
     }
-    mergedData.mitigationMeasures = mergedData.mitigationMeasures?.map(m => ({
+    mergedInitData.mitigationMeasures = mergedInitData.mitigationMeasures?.map(m => ({
         ...m,
         dueDate: m.dueDate ? new Date(m.dueDate).toISOString().split('T')[0] : ''
     }));
 
-    setFormData(mergedData);
+    setFormData(mergedInitData);
   }, [initialData]);
+
+  useEffect(() => {
+    // setError(formError || null); // Logik für setError entfernt, da wir formError direkt verwenden
+  }, [formError]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -79,7 +84,7 @@ export default function RiskForm({
   const handleMitigationChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const updatedMeasures = formData.mitigationMeasures ? [...formData.mitigationMeasures] : [];
-    // @ts-ignore
+    // @ts-expect-error Dynamische Eigenschaftszuweisung ist hier sicher, da wir die Struktur kennen
     updatedMeasures[index][name] = value;
     setFormData(prev => ({ ...prev, mitigationMeasures: updatedMeasures as MitigationMeasureFormData[] }));
   };
@@ -101,15 +106,24 @@ export default function RiskForm({
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic validation (can be expanded)
-    if (!formData.title || !formData.description) {
-      // This kind of error should ideally be handled by the parent via formError prop
-      alert('Titel und Beschreibung sind Pflichtfelder.'); 
-      return;
+    // setError(null); // Logik für setError entfernt
+
+    try {
+      const mergedSubmitData = {
+        ...formData,
+        riskScore: calculateRiskScore(formData.probability, formData.impact)
+      };
+
+      await onSubmit(mergedSubmitData);
+    } catch (submitErrorLocal) {
+      // setError('Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.'); // Logik für setError entfernt
+      // Stattdessen könnte hier der formError Prop genutzt werden, falls die Komponente von außen gesteuert wird,
+      // oder ein interner State, der nicht 'error' heißt, um Verwirrung zu vermeiden.
+      // Für dieses Beispiel wird kein Fehler direkt hier gesetzt, da die onSubmit-Prop dies handhaben sollte.
+      console.error('Submit error in RiskForm:', submitErrorLocal)
     }
-    await onSubmit(formData);
   };
 
   return (

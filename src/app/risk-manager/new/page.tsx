@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { UserRole } from '@/next-auth';
+import { UserRole } from '@/types/enums';
 import { Risk } from '@/types/risk';
-import RiskForm from '@/components/RiskForm'; // Importiere die neue Komponente
+import RiskForm from '@/components/RiskForm';
 
 // Hilfsfunktion zur Überprüfung der Benutzerrollen
 const userHasRoles = (userRoles: UserRole[] | undefined, targetRoles: UserRole[]): boolean => {
@@ -78,8 +78,8 @@ export default function NewRiskPage() {
       setSuccessMessage(`Risiko '${responseData.title || formData.title}' (ID: ${responseData.riskId}) erfolgreich erstellt.`);
       setTimeout(() => router.push(`/risk-manager/${responseData.riskId}`), 2000);
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Ein unbekannter Fehler ist aufgetreten');
     }
     setIsSubmitting(false);
   };

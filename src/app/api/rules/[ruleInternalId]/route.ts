@@ -1,180 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
-import { UserRole } from '@/types/enums';
 import clientPromise from '@/lib/mongodb';
+import { UserRole } from '@/types/enums';
 import { Rule } from '@/types/rule';
-import { ObjectId } from 'mongodb';
 
-const secret = process.env.AUTH_SECRET;
+// Hilfsfunktion für Rollenprüfung
+const hasAllowedRole = (userRoles: UserRole[] | undefined, allowedRoles: UserRole[]): boolean => {
+  if (!userRoles) return false;
+  return userRoles.some(role => allowedRoles.includes(role as UserRole));
+};
 
-// GET /api/rules/{ruleInternalId} - Eine spezifische Regel abrufen
-export async function GET(
-  req: NextRequest,
-  // @ts-ignore Next.js type generation mismatch for dynamic route context.params
-  context: { params: { ruleInternalId: string } }
-) {
-  const token = await getToken({ req, secret });
-  if (!token) {
-    return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 });
+// GET: Einzelne Regel abrufen
+export async function GET(request: NextRequest, { params }: { params: Promise<{ ruleInternalId: string }> }) {
+  const { ruleInternalId } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 });
   }
 
-  // Rollenbasierte Berechtigung für Lesezugriff
-  const allowedReadRoles = ['Admin', 'Compliancer Manager FULL', 'Compliancer Manager READ', 'Compliancer Manager WRITE'];
-  if (!token.role || !allowedReadRoles.includes(token.role as string)) {
-    return NextResponse.json({ message: 'Nicht autorisiert, diese Regel anzuzeigen' }, { status: 403 });
+  const userRoles = session.user.roles;
+  const allowedRoles: UserRole[] = [
+    UserRole.ADMIN,
+    UserRole.COMPLIANCE_MANAGER_FULL,
+    UserRole.COMPLIANCE_MANAGER_READ
+  ];
+
+  if (!hasAllowedRole(userRoles, allowedRoles)) {
+    return NextResponse.json({ message: 'Zugriff verweigert' }, { status: 403 });
   }
 
   try {
-    const { ruleInternalId } = context.params;
-    if (!ObjectId.isValid(ruleInternalId)) {
-      return NextResponse.json({ message: 'Ungültige Regel-ID' }, { status: 400 });
+    if (!ruleInternalId) {
+      return NextResponse.json({ message: 'Rule ID fehlt' }, { status: 400 });
     }
-
     const client = await clientPromise;
     const db = client.db();
-    const rule = await db.collection('rules').findOne({ _id: new ObjectId(ruleInternalId) });
-
+    const rule = await db.collection<Rule>('rules').findOne({ ruleInternalId });
     if (!rule) {
       return NextResponse.json({ message: 'Regel nicht gefunden' }, { status: 404 });
     }
     return NextResponse.json(rule, { status: 200 });
   } catch (error) {
-    const { ruleInternalId } = context.params;
-    console.error(`Fehler beim Abrufen der Regel ${ruleInternalId}:`, error);
-    return NextResponse.json({ message: 'Interner Serverfehler' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
+    return NextResponse.json({ message: 'Interner Serverfehler', error: errorMessage }, { status: 500 });
   }
 }
 
-// PUT /api/rules/{ruleInternalId} - Eine spezifische Regel aktualisieren
-export async function PUT(
-  req: NextRequest,
-  // @ts-ignore Next.js type generation mismatch for dynamic route context.params
-  context: { params: { ruleInternalId: string } }
-) {
-  const token = await getToken({ req, secret });
-  if (!token || !token.id) {
-    return NextResponse.json({ message: 'Nicht authentifiziert oder Benutzer-ID fehlt' }, { status: 401 });
+// PUT: Regel aktualisieren
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ ruleInternalId: string }> }) {
+  const { ruleInternalId } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 });
   }
 
-  const allowedWriteRoles = ['Admin', 'Compliancer Manager FULL', 'Compliancer Manager WRITE'];
-  if (!token.role || !allowedWriteRoles.includes(token.role)) {
-    return NextResponse.json({ message: 'Nicht autorisiert zum Aktualisieren von Regeln' }, { status: 403 });
+  const userRoles = session.user.roles;
+  const allowedRoles: UserRole[] = [
+    UserRole.ADMIN,
+    UserRole.COMPLIANCE_MANAGER_FULL,
+    UserRole.COMPLIANCE_MANAGER_WRITE
+  ];
+
+  if (!hasAllowedRole(userRoles, allowedRoles)) {
+    return NextResponse.json({ message: 'Zugriff verweigert' }, { status: 403 });
   }
 
   try {
-    const { ruleInternalId } = context.params;
-    if (!ObjectId.isValid(ruleInternalId)) {
-      return NextResponse.json({ message: 'Ungültige Regel-ID' }, { status: 400 });
+    if (!ruleInternalId) {
+      return NextResponse.json({ message: 'Rule ID fehlt' }, { status: 400 });
     }
-
-    const requestBody = await req.json() as Partial<Rule>; 
-
-    const { 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _id: _unusedId, 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        createdBy: _unusedCreatedBy, 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        createdAt: _unusedCreatedAt, 
-        ...updatableClientData 
-    } = requestBody;
-
-    if (Object.keys(updatableClientData).length === 0) {
-        return NextResponse.json({ message: 'Keine Aktualisierungsdaten bereitgestellt' }, { status: 400 });
+    const updates = await request.json();
+    delete updates._id;
+    delete updates.ruleInternalId;
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ message: 'Keine Aktualisierungsdaten angegeben' }, { status: 400 });
     }
-
-    // Wenn ruleId geändert wird, sicherstellen, dass sie eindeutig bleibt
-    if (updatableClientData.ruleId) {
-        const clientCheck = await clientPromise;
-        const dbCheck = clientCheck.db();
-        const existingRuleWithId = await dbCheck.collection('rules').findOne({
-            ruleId: updatableClientData.ruleId,
-            _id: { $ne: new ObjectId(ruleInternalId) } 
-        });
-        if (existingRuleWithId) {
-            return NextResponse.json({ message: `Eine andere Regel mit der ID '${updatableClientData.ruleId}' existiert bereits.` }, { status: 409 });
-        }
-    }
-
-    // Erstelle das $set-Objekt nur mit den erlaubten und den System-generierten Update-Feldern
-    const setData: Partial<Rule> = {
-        ...updatableClientData, // Nur die erlaubten Felder vom Client
-        lastModifiedBy: new ObjectId(token.id as string),
-        updatedAt: new Date(),
-    };
-    
-    // Optional: Version Inkrementieren, falls vorhanden und geändert wurde
-    // if (updatableClientData.version && typeof updatableClientData.version === 'number') {
-    //   const currentRule = await db.collection('rules').findOne({ _id: new ObjectId(ruleInternalId) });
-    //   if (currentRule && typeof currentRule.version === 'number') {
-    //     setData.version = currentRule.version + 1;
-    //   } else {
-    //     setData.version = 1; // Falls vorher keine Version vorhanden war
-    //   }
-    // } else if (Object.keys(updatableClientData).length > 0 && !updatableClientData.hasOwnProperty('version')) {
-       // setData.version = ... // Alte Version lesen und inkrementieren
-    // }
-
+    updates.updatedAt = new Date().toISOString();
     const client = await clientPromise;
     const db = client.db();
-    const result = await db.collection('rules').updateOne(
-      { _id: new ObjectId(ruleInternalId) },
-      { $set: setData }
+    const result = await db.collection<Rule>('rules').updateOne(
+      { ruleInternalId },
+      { $set: updates }
     );
-
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: 'Regel nicht gefunden' }, { status: 404 });
     }
-
-    const updatedRule = await db.collection('rules').findOne({ _id: new ObjectId(ruleInternalId) });
+    const updatedRule = await db.collection<Rule>('rules').findOne({ ruleInternalId });
     return NextResponse.json(updatedRule, { status: 200 });
-
   } catch (error) {
-    const { ruleInternalId } = context.params;
-    console.error(`Fehler beim Aktualisieren der Regel ${ruleInternalId}:`, error);
-    if (error instanceof Error && error.message.includes('Argument passed in must be a string of 12 bytes or a string of 24 hex characters')) {
-        return NextResponse.json({ message: 'Ungültige Benutzer-ID im Token für lastModifiedBy.' }, { status: 400 });
-    }
-    return NextResponse.json({ message: 'Interner Serverfehler' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
+    return NextResponse.json({ message: 'Interner Serverfehler', error: errorMessage }, { status: 500 });
   }
 }
 
-// DELETE /api/rules/{ruleInternalId} - Eine spezifische Regel löschen
-export async function DELETE(
-  req: NextRequest,
-  // @ts-ignore Next.js type generation mismatch for dynamic route context.params
-  context: { params: { ruleInternalId: string } }
-) {
-  const token = await getToken({ req, secret });
-  if (!token) {
-    return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 });
+// DELETE: Regel löschen
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ ruleInternalId: string }> }) {
+  const { ruleInternalId } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 });
   }
 
-  const allowedDeleteRoles = ['Admin', 'Compliancer Manager FULL']; // Nur bestimmte Rollen dürfen löschen
-  if (!token.role || !allowedDeleteRoles.includes(token.role)) {
-    return NextResponse.json({ message: 'Nicht autorisiert zum Löschen von Regeln' }, { status: 403 });
+  const userRoles = session.user.roles;
+  const allowedRoles: UserRole[] = [
+    UserRole.ADMIN,
+    UserRole.COMPLIANCE_MANAGER_FULL
+  ];
+
+  if (!hasAllowedRole(userRoles, allowedRoles)) {
+    return NextResponse.json({ message: 'Zugriff verweigert' }, { status: 403 });
   }
 
   try {
-    const { ruleInternalId } = context.params;
-    if (!ObjectId.isValid(ruleInternalId)) {
-      return NextResponse.json({ message: 'Ungültige Regel-ID' }, { status: 400 });
+    if (!ruleInternalId) {
+      return NextResponse.json({ message: 'Rule ID fehlt' }, { status: 400 });
     }
-
     const client = await clientPromise;
     const db = client.db();
-    const result = await db.collection('rules').deleteOne({ _id: new ObjectId(ruleInternalId) });
-
+    const result = await db.collection('rules').deleteOne({ ruleInternalId });
     if (result.deletedCount === 0) {
-      return NextResponse.json({ message: 'Regel nicht gefunden' }, { status: 404 });
+      return NextResponse.json({ message: 'Regel nicht gefunden oder bereits gelöscht' }, { status: 404 });
     }
-
-    return NextResponse.json({ message: 'Regel erfolgreich gelöscht' }, { status: 200 }); // Oder 204 No Content
+    return NextResponse.json({ message: 'Regel erfolgreich gelöscht' }, { status: 200 });
   } catch (error) {
-    const { ruleInternalId } = context.params;
-    console.error(`Fehler beim Löschen der Regel ${ruleInternalId}:`, error);
-    return NextResponse.json({ message: 'Interner Serverfehler' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
+    return NextResponse.json({ message: 'Interner Serverfehler', error: errorMessage }, { status: 500 });
   }
 } 

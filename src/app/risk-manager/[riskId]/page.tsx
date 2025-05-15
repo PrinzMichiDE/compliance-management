@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Risk, RiskProbability, RiskImpact, RiskStatus, MitigationMeasure } from '@/types/risk';
+import { Risk, RiskProbability, RiskImpact, RiskStatus } from '@/types/risk';
 import { UserRole } from '@/types/enums';
 
 // Hilfsfunktion zur Überprüfung der Benutzerrollen
@@ -34,16 +34,8 @@ export default function RiskDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-    if (status === 'authenticated' && riskId) {
-      fetchRiskDetails();
-    }
-  }, [status, riskId, router]);
-
-  const fetchRiskDetails = async () => {
+  // fetchRiskDetails mit useCallback umhüllt
+  const fetchRiskDetails = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -54,11 +46,20 @@ export default function RiskDetailPage() {
       }
       const data: Risk = await response.json();
       setRisk(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Ein unbekannter Fehler ist aufgetreten');
     }
     setIsLoading(false);
-  };
+  }, [riskId]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+    if (status === 'authenticated' && riskId) {
+      fetchRiskDetails();
+    }
+  }, [status, riskId, router, fetchRiskDetails]);
 
   const handleDeleteRisk = async () => {
     if (!risk || !risk.riskId) return;
@@ -76,8 +77,8 @@ export default function RiskDetailPage() {
       }
       alert('Risiko erfolgreich gelöscht.');
       router.push('/risk-manager'); // Zurück zur Übersicht
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Ein unbekannter Fehler ist aufgetreten');
     }
     setIsDeleting(false);
   };

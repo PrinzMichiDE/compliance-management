@@ -52,9 +52,9 @@ export default function NewRulePage() {
       alert('Regel erfolgreich erstellt!'); 
       router.push('/rule-manager');
 
-    } catch (e: any) {
+    } catch (e: Error | unknown) {
       console.error('Fehler beim Senden des Formulars:', e);
-      setSubmitError(e.message || 'Ein unbekannter Fehler ist aufgetreten.');
+      setSubmitError(e instanceof Error ? e.message : 'Ein unbekannter Fehler ist aufgetreten.');
     } finally {
       setIsSubmitting(false);
     }

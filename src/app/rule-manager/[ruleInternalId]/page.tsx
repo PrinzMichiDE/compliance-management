@@ -42,9 +42,9 @@ export default function RuleDetailPage() {
           }
           const data: Rule = await response.json();
           setRule(data);
-        } catch (e: any) {
+        } catch (e: Error | unknown) {
           console.error(e);
-          setError(e.message || 'Ein unbekannter Fehler ist aufgetreten.');
+          setError(e instanceof Error ? e.message : 'Ein unbekannter Fehler ist aufgetreten.');
         } finally {
           setIsLoading(false);
         }
