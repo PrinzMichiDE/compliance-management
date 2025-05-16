@@ -1,0 +1,37 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+// }
+
+// model Embedding {
+//   id              String @id @default(uuid())
+//   document_id     String
+//   version_id      String
+//   chunk_sequence  Int
+//   text_chunk      String
+//   embedding       Unsupported("vector(1536)") // Angepasst an OpenAI text-embedding-ada-002
+//
+//   @@index([document_id])
+//   @@index([version_id])
+//   @@map("embeddings") // Auf die existierende Tabelle "embeddings" mappen
+// }
+
+// Hier kommt unser Embedding-Modell später hin
+// model Embedding {
+//   id              String @id @default(uuid())
+//   document_id     String
+//   version_id      String
+//   chunk_sequence  Int
+//   text_chunk      String
+//   embedding       Unsupported("vector(1536)") // Angepasst an OpenAI text-embedding-ada-002
+//
+//   @@index([document_id])
+//   @@index([version_id])
+// } 

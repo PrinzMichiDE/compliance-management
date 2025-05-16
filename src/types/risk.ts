@@ -59,11 +59,20 @@ export interface Risk {
   aiGeneratedDescription?: string;
   aiIdentified?: boolean; // War die Identifizierung KI-basiert?
   aiSuggestedMitigation?: string;
+
+  // Zusätzliche KI-Felder für Nachverfolgung und Updates
+  aiGenerated?: boolean; // Doppelt zu aiIdentified, konsolidieren oder spezifischer benennen, hier behalte ich es mal zur Verdeutlichung der Anforderung
+  sourceDocumentId?: string; // ID des Quelldokuments
+  lastAiUpdate?: Date; // Wann wurde dieses Risiko zuletzt von der KI aktualisiert/erstellt
+  createdBy?: string; // User ID oder System ID
+  lastModifiedBy?: string; // User ID oder System ID
 }
 
-export type RiskFormData = Omit<Risk, '_id' | 'createdAt' | 'updatedAt' | 'riskScore' | 'mitigationMeasures'> & {
+export type RiskFormData = Omit<Risk, '_id' | 'createdAt' | 'updatedAt' | 'riskScore' | 'mitigationMeasures' | 'createdBy' | 'lastModifiedBy' | 'lastAiUpdate'> & {
   mitigationMeasures?: MitigationMeasureFormData[];
   // Datumsfelder explizit als String, da das Formular sie so erwartet
   identifiedDate: string; 
   reviewDate?: string;
+  // aiIdentified und sourceDocumentId können im Formular relevant sein, wenn ein KI-Vorschlag bearbeitet wird
+  // aiGenerated sollte hier nicht Teil des Formulars sein, sondern serverseitig gesetzt werden.
 }; 

@@ -1,32 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Rule } from '@/types/rule';
-// pdf-parse wird jetzt dynamisch importiert, wenn benötigt
-// import pdf from 'pdf-parse'; 
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import clientPromise from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
+import qdrantClient from '@/lib/qdrant';
+import { v4 as uuidv4 } from 'uuid';
 
-export const runtime = 'nodejs'; // Stellt sicher, dass die Route in der Node.js-Umgebung läuft
+// pdf-parse wird dynamisch importiert
 
-// Helper function to attempt to extract text from various file types
-// IMPORTANT: This is a very basic implementation. For robust PDF/DOCX extraction, 
-// you'll likely need server-side libraries like 'pdf-parse' for PDFs or 'mammoth' for DOCX.
-// These cannot be installed/run directly in this environment, so this is a placeholder.
-async function extractTextFromFile(file: File): Promise<string> {
-  const anaylseFile = file as any;
-  if (file.type === 'text/plain') {
+export const runtime = 'nodejs';
+
+const QDRANT_COLLECTION_NAME = 'document_embeddings';
+const OPENAI_EMBEDDING_DIMENSION = 3072;
+
+// Definiere eine Schnittstelle für die Punktstruktur, die an Qdrant gesendet wird
+interface QdrantPoint {
+  id: string | number;
+  vector: number[];
+  payload?: Record<string, any>;
+}
+
+async function ensureCollectionExists() {
+  try {
+    await qdrantClient.getCollection(QDRANT_COLLECTION_NAME);
+    console.log(`Qdrant collection "${QDRANT_COLLECTION_NAME}" already exists.`);
+  } catch (error: any) {
+    console.log(`Qdrant collection "${QDRANT_COLLECTION_NAME}" does not exist. Attempting to create.`);
+    await qdrantClient.createCollection(QDRANT_COLLECTION_NAME, {
+      vectors: {
+        size: OPENAI_EMBEDDING_DIMENSION,
+        distance: 'Cosine',
+      },
+    });
+    console.log(`Qdrant collection "${QDRANT_COLLECTION_NAME}" created.`);
+  }
+}
+
+function chunkTextByParagraphs(text: string): string[] {
+  if (!text) return [];
+  return text
+    .split(/\n\s*\n/) // Teilt bei einem oder mehreren Zeilenumbrüchen, gefolgt von optionalen Leerzeichen und einem weiteren Zeilenumbruch
+    .map(chunk => chunk.trim())
+    .filter(chunk => chunk.length > 0);
+}
+
+async function extractTextFromFile(filePath: string, originalFileType: string): Promise<string> {
+  if (originalFileType === 'text/plain') {
     console.log('Extracting text from plain text file.');
-    return file.text();
-  } else if (file.type === 'application/pdf') {
-    console.log('Attempting to extract text from PDF file.');
-    console.log('Received file details for PDF processing:', { name: file.name, size: file.size, type: file.type });
+    return fs.readFile(filePath, { encoding: 'utf-8' });
+  } else if (originalFileType === 'application/pdf') {
+    console.log('Attempting to extract text from PDF file at path:', filePath);
     try {
       const pdf = (await import('pdf-parse')).default;
-      const fileBuffer = Buffer.from(await anaylseFile.arrayBuffer());
-      // Optionen für pdf-parse können hier übergeben werden, falls nötig
-      // const options = { // Beispieloptionen
-      //   max: 10, // maximale Anzahl der zu lesenden Seiten
-      // };
-      const data = await pdf(fileBuffer /*, options */);
+      const fileBuffer = await fs.readFile(filePath);
+      const data = await pdf(fileBuffer);
       console.log('PDF parsing successful. Extracted text length:', data.text.length);
-      return data.text; // data.text enthält den extrahierten Text
+      return data.text;
     } catch (error) {
       console.error('Error parsing PDF:', error);
       if (error instanceof Error) {
@@ -34,183 +63,256 @@ async function extractTextFromFile(file: File): Promise<string> {
       }
       throw new Error(`Fehler beim Parsen der PDF-Datei: ${(error as Error).message}`);
     }
-  } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
-    // Für DOCX würden Sie eine ähnliche Logik mit einer Bibliothek wie 'mammoth' implementieren
-    // z.B. npm install mammoth
-    // import mammoth from 'mammoth';
-    // const arrayBuffer = await anaylseFile.arrayBuffer();
-    // const { value } = await mammoth.extractRawText({ arrayBuffer });
-    // return value;
-    console.warn('DOC/DOCX text extraction is still a placeholder. Consider implementing with a library like mammoth.js.');
-    return `[Simulierter extrahierter Text aus ${file.name}] Für DOCX ist eine Bibliothek wie mammoth.js nötig.`;
+  } else if (originalFileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || originalFileType === 'application/msword') {
+    console.warn('DOC/DOCX text extraction is still a placeholder.');
+    return `[Simulierter extrahierter Text aus Datei am Pfad ${filePath}] Für DOCX ist eine Bibliothek wie mammoth.js nötig.`;
   }
-  console.warn(`Unsupported file type for direct text extraction: ${file.type}. Falling back to raw text attempt.`);
-  return file.text(); // Fallback, might be garbled for binary files
+  console.warn(`Unsupported file type for direct text extraction: ${originalFileType}. Falling back to raw text attempt.`);
+  return fs.readFile(filePath, { encoding: 'utf-8' });
 }
 
-// Definiert die Struktur für eine einzelne analysierte Regel
-interface SingleRuleAnalysis {
-  extractedFields: Partial<Rule>; // Die extrahierten Felder für diese eine Regel
-  // Optional: embedding?: number[]; // Falls wir später pro Regel Embeddings wollen
-}
-
-// Definiert die Gesamtantwort des Analyse-Endpunkts
+// Vereinfachte Antwortstruktur
 interface DocumentAnalysisResponse {
-  analyzedRules: SingleRuleAnalysis[]; // Array der erkannten Regeln
-  documentEmbedding: number[] | null;  // Embedding für das gesamte Dokument
+  extractedText: string | null;
+  processedChunks?: number;
+  message?: string;
   documentLevelError?: string;      // Fehler, die das gesamte Dokument betreffen (z.B. Dateiverarbeitung)
-  extractionError?: string;         // Fehler spezifisch für den Datenextraktionsprozess
   embeddingError?: string;          // Fehler spezifisch für den Embeddingprozess
 }
 
+interface AnalyzeRequestBody {
+  filePath: string; 
+  originalFileType: string;
+  documentId: string;
+}
+
 export async function POST(request: NextRequest) {
-  let documentText = '';
-  // Initialisiert die Antwortstruktur
+  console.log('Verwendete QDRANT_URL:', process.env.QDRANT_URL);
+  let documentText: string | null = null;
   let responseData: DocumentAnalysisResponse = { 
-    analyzedRules: [], 
-    documentEmbedding: null 
+    extractedText: null, 
   };
+  let absoluteFilePath: string | null = null; 
+  let docId: ObjectId | null = null;
 
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
+    const body = await request.json() as AnalyzeRequestBody;
+    const { filePath, originalFileType, documentId } = body;
 
-    if (!file) {
-      responseData.documentLevelError = 'Keine Datei hochgeladen.';
+    if (!documentId || !ObjectId.isValid(documentId)) {
+      responseData.documentLevelError = 'Gültige documentId ist erforderlich.';
+      return NextResponse.json(responseData, { status: 400 });
+    }
+    docId = new ObjectId(documentId);
+
+    // Status auf 'processing' setzen, sobald die Anfrage hier ankommt
+    try {
+      const client = await clientPromise;
+      const db = client.db();
+      await db.collection('documents').updateOne(
+        { _id: docId }, 
+        { $set: { embeddingStatus: 'processing', lastIndexedAt: new Date() } }
+      );
+      console.log(`Dokument ${docId.toString()} Status auf 'processing' gesetzt.`);
+    } catch (dbError) {
+      // Fehler beim Setzen auf 'processing' sollte geloggt werden, aber die Analyse nicht unbedingt stoppen.
+      console.error(`Fehler beim Setzen des Dokumentenstatus auf 'processing' für ${docId.toString()}:`, dbError);
+    }
+
+    if (!filePath || !originalFileType) {
+      responseData.documentLevelError = 'Fehlender Dateipfad oder Dateityp im Request-Body.';
       return NextResponse.json(responseData, { status: 400 });
     }
 
+    absoluteFilePath = path.resolve(process.cwd(), filePath);
+    console.log(`Verarbeite Datei unter: ${absoluteFilePath}`);
+
     try {
-        documentText = await extractTextFromFile(file);
+      await fs.access(absoluteFilePath);
+    } catch (e) {
+      console.error(`Datei nicht gefunden unter: ${absoluteFilePath}`, e);
+      responseData.documentLevelError = `Die angeforderte Datei wurde nicht gefunden: ${filePath}`;
+      return NextResponse.json(responseData, { status: 404 });
+    }
+
+    try {
+        documentText = await extractTextFromFile(absoluteFilePath, originalFileType);
+        responseData.extractedText = documentText;
+        console.log('Extrahierter documentText:', JSON.stringify(documentText));
+        console.log('documentText.trim():', JSON.stringify(documentText?.trim()));
     } catch (error) {
         console.error('Fehler beim Extrahieren von Text aus der Datei:', error);
         responseData.documentLevelError = `Fehler beim Verarbeiten der Datei: ${(error as Error).message}`;
+        // Status auf failed setzen, wenn Text-Extraktion fehlschlägt
+        if (docId) {
+            try {
+                const client = await clientPromise;
+                const db = client.db();
+                await db.collection('documents').updateOne({ _id: docId }, { $set: { embeddingStatus: 'failed', lastIndexedAt: new Date() } });
+            } catch (dbUpdateError) {
+                console.error('Fehler beim Setzen des Status auf FAILED nach Text-Extraktionsfehler:', dbUpdateError);
+            }
+        }
         return NextResponse.json(responseData, { status: 500 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     const customEndpointUrl = process.env.OPENAI_CUSTOM_ENDPOINT_URL;
-    const extractionModelName = process.env.OPENAI_MODEL_NAME;
     const embeddingModelName = process.env.OPENAI_EMBEDDING_MODEL_NAME;
 
     if (!apiKey) {
-      console.error('OPENAI_API_KEY nicht konfiguriert.');
-      // Dieser Fehler betrifft beide Prozesse
-      responseData.extractionError = 'OpenAI API Key nicht konfiguriert für Extraktion.';
       responseData.embeddingError = 'OpenAI API Key nicht konfiguriert für Embedding.';
     }
 
-    // 1. Strukturierte Datenextraktion (jetzt eine Liste von Regeln erwartend)
-    if (apiKey && customEndpointUrl && extractionModelName && documentText) {
+    if (apiKey && customEndpointUrl && embeddingModelName && documentText) {
       try {
-        const fullCustomEndpointUrl = customEndpointUrl.endsWith('/') ? `${customEndpointUrl}v1/chat/completions` : `${customEndpointUrl}/v1/chat/completions`;
-        console.log(`Sende Extraktions-Anfrage (erwarte Liste) an: ${fullCustomEndpointUrl} mit Modell: ${extractionModelName}`);
+        await ensureCollectionExists();
+        console.log('documentText vor Chunking:', JSON.stringify(documentText));
+        console.log('documentText.trim().length vor Chunking:', documentText?.trim().length);
+
+        let chunks = chunkTextByParagraphs(documentText);
         
-        const expectedFieldsString = JSON.stringify(['ruleId', 'name', 'description', 'category', 'status', 'priority', 'targetAudience', 'linkedDocuments', 'tags', 'validFrom', 'validTo']);
-        // ANGEPASSTER SYSTEM PROMPT:
-        const systemPrompt = `Du bist eine KI zur Analyse von regulatorischen Dokumenten. Extrahiere ALLE Regeln, die du im folgenden Text findest. Gib eine JSON-LISTE (Array) von Regelobjekten zurück. JEDES Objekt in der Liste sollte die Felder aus dieser Vorlage haben: ${expectedFieldsString}. Die Felder targetAudience, linkedDocuments und tags sollten Arrays von Strings sein. Die Datumsfelder validFrom und validTo sollten im Format YYYY-MM-DD sein. Wenn eine Information für ein Feld nicht im Text gefunden wird, lasse das Feld im JSON weg oder setze es auf null oder einen leeren String/Array. Wenn keine Regeln gefunden werden, gib eine leere Liste [] zurück.`;
-        const userPrompt = `Bitte extrahiere alle Regel-Informationen aus dem folgenden Dokumententext:\n\n---\n${documentText}\n---`;
+        if (chunks.length === 0 && documentText.trim().length > 0) {
+          console.warn('Keine Paragraphen-Chunks gefunden. Verwende gesamten Text als einen Chunk.');
+          chunks = [documentText.trim()];
+        } else if (chunks.length === 0) {
+          console.error('Fehlerhafter Zustand: chunks.length ist 0. documentText:', JSON.stringify(documentText), 'documentText.trim():', JSON.stringify(documentText.trim()));
+          throw new Error('Dokumententext konnte nicht in Chunks aufgeteilt werden oder ist nach dem Trimmen leer.');
+        }
+        console.log(`Dokument in ${chunks.length} Chunks aufgeteilt.`);
 
-        const extractionRequestBody = {
-          model: extractionModelName,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          response_format: { type: "json_object" } 
-        };
+        const pointsToUpsert: QdrantPoint[] = [];
+        const fullEmbeddingEndpointUrl = customEndpointUrl.endsWith('/') ? `${customEndpointUrl}v1/embeddings` : `${customEndpointUrl}/v1/embeddings`;
 
-        const extractionResponse = await fetch(fullCustomEndpointUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify(extractionRequestBody),
-        });
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          // Zusätzlicher Check, um leere Chunks zu überspringen (sollte durch trim() schon minimiert sein)
+          if (chunk.length === 0) {
+            console.log(`Überspringe leeren Chunk ${i + 1}/${chunks.length}.`);
+            continue;
+          }
+          console.log(`Verarbeite Chunk ${i + 1}/${chunks.length}... (Länge: ${chunk.length})`);
+          const embeddingRequestBody = { input: chunk, model: embeddingModelName };
+          const embeddingResponse = await fetch(fullEmbeddingEndpointUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify(embeddingRequestBody),
+          });
 
-        if (!extractionResponse.ok) {
-          const errorText = await extractionResponse.text();
-          throw new Error(`Fehler vom Custom OpenAI Service (Extraktion): ${extractionResponse.status} ${errorText}`);
+          if (!embeddingResponse.ok) {
+            const errorText = await embeddingResponse.text();
+            throw new Error(`Fehler vom OpenAI Service für Chunk ${i + 1}: ${embeddingResponse.status} ${errorText}`);
+          }
+          const embeddingData = await embeddingResponse.json();
+          if (embeddingData.data && embeddingData.data[0] && embeddingData.data[0].embedding) {
+            const embeddingVector = embeddingData.data[0].embedding as number[];
+            pointsToUpsert.push({
+              id: uuidv4(), 
+              vector: embeddingVector,
+              payload: {
+                documentId: docId.toString(),
+                chunkSequence: i,
+                text: chunk, 
+                originalFileType: originalFileType,
+              },
+            });
+          } else {
+            throw new Error(`Ungültiges Format der Embedding-Antwort für Chunk ${i + 1}.`);
+          }
         }
         
-        // Erwarte nun potenziell ein Objekt, das ein Array von Regeln enthält (abhängig von der KI und ob response_format: { type: "json_object" } immer ein Top-Level-Objekt erzwingt)
-        // Oder direkt ein Array. Wir müssen flexibel sein oder die KI präziser anweisen.
-        // Annahme: Die KI gibt ein Objekt zurück, das ein Feld enthält, welches das Array der Regeln ist, ODER direkt das Array.
-        // z.B. { "rules": [...] } oder direkt [...] 
-        const extractionResult = await extractionResponse.json();
-        let extractedRulesArray: Partial<Rule>[] = [];
+        if (pointsToUpsert.length === 0 && chunks.length > 0) {
+            // Dieser Fall tritt ein, wenn alle Chunks leer waren und übersprungen wurden.
+            console.warn("Keine gültigen Chunks zum Indexieren nach dem Filtern leerer Chunks gefunden.");
+            // Man könnte hier den Status auf 'failed' setzen oder als 'completed' ohne Embeddings betrachten.
+            // Fürs Erste setzen wir es als eine Art Fehler, da keine Embeddings erstellt wurden.
+            responseData.embeddingError = "Keine indexierbaren Text-Chunks nach Filterung gefunden.";
+            throw new Error(responseData.embeddingError);
+        }
 
-        if (Array.isArray(extractionResult)) {
-            extractedRulesArray = extractionResult;
-        } else if (extractionResult && typeof extractionResult === 'object' && extractionResult.rules && Array.isArray(extractionResult.rules)) {
-            extractedRulesArray = extractionResult.rules;
-        } else if (extractionResult && typeof extractionResult === 'object') {
-            // Fallback: Wenn es ein einzelnes Objekt ist, behandeln wir es als eine einzelne Regel in einem Array
-            // Dies ist nützlich, wenn die KI trotz Anweisung nur ein Objekt liefert.
-            console.warn('KI-Antwort für Extraktion war ein einzelnes Objekt, erwartet wurde ein Array oder ein Objekt mit einem "rules"-Array. Behandle als einzelne Regel.');
-            extractedRulesArray = [extractionResult as Partial<Rule>]; 
+        if (pointsToUpsert.length > 0) {
+          console.log(`Versuche ${pointsToUpsert.length} Punkt(e) in Qdrant Collection "${QDRANT_COLLECTION_NAME}" einzufügen.`);
+          await qdrantClient.upsert(QDRANT_COLLECTION_NAME, { points: pointsToUpsert });
+          console.log('Punkte erfolgreich in Qdrant gespeichert.');
+          responseData.processedChunks = pointsToUpsert.length;
+        }
+
+        if (docId) {
+          const clientDB = await clientPromise;
+          const db = clientDB.db();
+          await db.collection('documents').updateOne(
+            { _id: docId }, 
+            { $set: { 
+                embeddingStatus: 'completed', 
+                lastIndexedAt: new Date(),
+              } 
+            }
+          );
+          responseData.message = `Text extrahiert und ${pointsToUpsert.length} Chunks erfolgreich in Qdrant gespeichert.`;
+        }
+      } catch (e: any) {
+        console.error('Fehler bei der Embedding-Erstellung oder Qdrant-Speicherung:', e);
+        if (e.status && e.data) {
+          console.error('Qdrant Error Status:', e.status);
+          console.error('Qdrant Error Data:', JSON.stringify(e.data, null, 2)); 
+          responseData.embeddingError = `Qdrant Error ${e.status}: ${JSON.stringify(e.data)}`;
         } else {
-            console.warn('Unerwartetes Format von der Extraktions-KI erhalten:', extractionResult);
-            throw new Error('Unerwartetes Format von der Extraktions-KI erhalten.');
+          responseData.embeddingError = (e as Error).message;
         }
         
-        responseData.analyzedRules = extractedRulesArray.map(ruleFields => ({ extractedFields: ruleFields }));
-
-      } catch (e) {
-        console.error('Fehler bei der Datenextraktion:', e);
-        responseData.extractionError = (e as Error).message;
-      }
-    } else if (!responseData.extractionError) { // Nur setzen, wenn nicht schon durch fehlenden API Key gesetzt
-      let missingConfig = 'Fehlende Konfiguration für Datenextraktion:';
-      if (!customEndpointUrl) missingConfig += ' OPENAI_CUSTOM_ENDPOINT_URL';
-      if (!extractionModelName) missingConfig += ' OPENAI_MODEL_NAME';
-      if (!documentText) missingConfig += ' Kein Dokumententext extrahiert';
-      console.warn(missingConfig);
-      responseData.extractionError = missingConfig;
-    }
-
-    // 2. Embedding-Erstellung für das gesamte Dokument (bleibt wie zuvor)
-    if (apiKey && embeddingModelName && documentText) {
-      try {
-        const fullEmbeddingEndpointUrl = customEndpointUrl.endsWith('/') ? `${customEndpointUrl}v1/embeddings` : `${customEndpointUrl}/v1/embeddings`; // Wiederverwendung customEndpointUrl
-        console.log(`Sende Embedding-Anfrage an Custom Endpoint: ${fullEmbeddingEndpointUrl} mit Modell: ${embeddingModelName}`);
-        
-        const embeddingRequestBody = { input: documentText, model: embeddingModelName };
-        const embeddingResponse = await fetch(fullEmbeddingEndpointUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify(embeddingRequestBody),
-        });
-
-        if (!embeddingResponse.ok) {
-          const errorText = await embeddingResponse.text();
-          throw new Error(`Fehler vom Custom OpenAI Service (Embedding): ${embeddingResponse.status} ${errorText}`);
+        if (docId) {
+          const client = await clientPromise;
+          const db = client.db();
+          await db.collection('documents').updateOne({ _id: docId }, { $set: { embeddingStatus: 'failed', lastIndexedAt: new Date() } });
         }
-        const embeddingData = await embeddingResponse.json();
-        if (embeddingData.data && embeddingData.data[0] && embeddingData.data[0].embedding) {
-          responseData.documentEmbedding = embeddingData.data[0].embedding;
-        } else {
-          throw new Error('Ungültiges Format der Embedding-Antwort.');
-        }
-      } catch (e) {
-        console.error('Fehler bei der Embedding-Erstellung:', e);
-        responseData.embeddingError = (e as Error).message;
       }
-    } else if (!responseData.embeddingError) { // Nur setzen, wenn nicht schon durch fehlenden API Key gesetzt
+    } else if (!responseData.embeddingError && documentText) { 
         let missingConfig = 'Fehlende Konfiguration für Embedding Erstellung:';
-        if (!customEndpointUrl && !process.env.OPENAI_API_KEY) missingConfig += ' (Custom Endpoint URL für Embedding nicht konfiguriert oder API Key fehlt)';
+        if (!customEndpointUrl) missingConfig += ' OPENAI_CUSTOM_ENDPOINT_URL';
         else if (!embeddingModelName) missingConfig += ' OPENAI_EMBEDDING_MODEL_NAME';
-        if (!documentText) missingConfig += ' Kein Dokumententext extrahiert';
         console.warn(missingConfig);
         responseData.embeddingError = missingConfig;
+        if (docId && apiKey) {
+            const client = await clientPromise;
+            const db = client.db();
+            await db.collection('documents').updateOne({ _id: docId }, { $set: { embeddingStatus: 'failed', lastIndexedAt: new Date() } });
+        }
+    } else if (!documentText) {
+        responseData.embeddingError = "Kein Dokumententext für Embedding vorhanden.";
+        if (docId) {
+            const client = await clientPromise;
+            const db = client.db();
+            await db.collection('documents').updateOne({ _id: docId }, { $set: { embeddingStatus: 'failed', lastIndexedAt: new Date() } });
+        }
     }
     
-    // Erfolgreiche Antwort, auch wenn Teile fehlgeschlagen sind (Fehlerdetails sind in der Antwort)
+    if (responseData.extractedText && !responseData.processedChunks && !responseData.embeddingError && !responseData.message) {
+        responseData.message = "Text erfolgreich extrahiert. Embeddings wurden nicht erstellt oder gespeichert (siehe Konfiguration oder Fehlerlogs).";
+        if (docId && !responseData.documentLevelError) {
+            const client = await clientPromise;
+            const db = client.db();
+            const currentDoc = await db.collection('documents').findOne({ _id: docId });
+            if (currentDoc && currentDoc.embeddingStatus !== 'failed') {
+                 await db.collection('documents').updateOne({ _id: docId }, { $set: { embeddingStatus: 'pending', lastIndexedAt: new Date() } });
+            }
+        }
+    }
+
     return NextResponse.json(responseData);
 
-  } catch (error) { // Catch für generelle Fehler im äußeren try-Block
+  } catch (error) {
     console.error('Schwerwiegender Fehler im analyze-document Endpunkt:', error);
-    // Stellen Sie sicher, dass responseData initialisiert ist, auch wenn der Fehler früh auftritt
-    const finalResponseData: DocumentAnalysisResponse = responseData || { analyzedRules: [], documentEmbedding: null };
+    const finalResponseData: DocumentAnalysisResponse = responseData || { extractedText: null };
     finalResponseData.documentLevelError = finalResponseData.documentLevelError || `Allgemeiner Fehler: ${(error as Error).message}`;
+    if (docId) {
+      try {
+        const client = await clientPromise;
+        const db = client.db();
+        await db.collection('documents').updateOne({ _id: docId }, { $set: { embeddingStatus: 'failed', lastIndexedAt: new Date() } });
+      } catch (dbError) {
+        console.error("Fehler beim DB-Update im Catch-Block des Analyze-Endpunkts:", dbError);
+      }
+    }
     return NextResponse.json(finalResponseData, { status: 500 });
-  }
+  } 
 } 

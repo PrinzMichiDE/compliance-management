@@ -13,12 +13,17 @@ export interface Rule {
   linkedDocuments?: string[];
   tags?: string[];
   version?: number;
-  createdBy: ObjectId; // Referenz zu User._id
-  lastModifiedBy?: ObjectId; // Referenz zu User._id
+  createdBy?: ObjectId | string; // Referenz zu User._id oder System-ID
+  lastModifiedBy?: ObjectId | string; // Referenz zu User._id oder System-ID
   createdAt?: Date;
   updatedAt?: Date;
   validFrom?: Date;
   validTo?: Date;
   customFields?: Record<string, unknown>;
   embedding?: number[]; // Vektor für semantische Suche
+
+  // KI-spezifische Felder für Nachverfolgung und Updates
+  aiGenerated?: boolean;
+  sourceDocumentId?: string; // ID des Quelldokuments
+  lastAiUpdate?: Date; // Wann wurde diese Regel zuletzt von der KI aktualisiert/erstellt
 } 

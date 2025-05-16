@@ -5,10 +5,18 @@ import { Rule } from '@/types/rule';
 import { ObjectId } from 'mongodb';
 import { UserRole } from '@/types/enums';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/authOptions';
 import { revalidatePath } from 'next/navigation';
 
 const secret = process.env.AUTH_SECRET;
+
+// Hilfsfunktion zur Überprüfung der Benutzerrollen
+function hasRequiredRole(userRoles: UserRole[] | undefined | null, requiredRoles: UserRole[]): boolean {
+  if (!userRoles) {
+    return false;
+  }
+  return userRoles.some(role => requiredRoles.includes(role));
+}
 
 // GET /api/rules - Alle Regeln abrufen
 export async function GET(req: NextRequest) {
@@ -43,7 +51,7 @@ export async function GET(req: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.id || !hasRequiredRole(session.user.roles, [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_WRITE])) {
+    if (!session || !session.user || !session.user.id || !hasRequiredRole(session.user.roles as UserRole[], [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_WRITE])) {
       return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 });
     }
 

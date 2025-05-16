@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { UserRole } from '@/types/enums';
 import { userHasRoles } from '@/lib/authUtils';
 import Link from 'next/link';
-import { BookOpenIcon, ShieldCheckIcon, ClipboardDocumentListIcon, AcademicCapIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, ShieldCheckIcon, ClipboardDocumentListIcon, AcademicCapIcon, Cog6ToothIcon, FolderOpenIcon } from '@heroicons/react/24/outline';
 
 const cardDefs = [
   {
@@ -23,6 +23,18 @@ const cardDefs = [
     href: '/risk-manager',
     icon: <ShieldCheckIcon className="h-7 w-7 text-indigo-600" />, 
     allowedRoles: [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_READ, UserRole.COMPLIANCE_MANAGER_WRITE, UserRole.RISK_MANAGER],
+  },
+  {
+    title: 'Dokumentenbibliothek',
+    description: 'Dokumente zentral verwalten und analysieren.',
+    href: '/document-library',
+    icon: <FolderOpenIcon className="h-7 w-7 text-indigo-600" />,
+    allowedRoles: [
+      UserRole.ADMIN,
+      UserRole.COMPLIANCE_MANAGER_FULL,
+      UserRole.COMPLIANCE_MANAGER_READ,
+      UserRole.COMPLIANCE_MANAGER_WRITE
+    ],
   },
   {
     title: 'Meine Aufgaben',
@@ -98,7 +110,7 @@ export default function DashboardPage() {
         <p className="text-slate-600 mb-8">Hier ist eine Übersicht Ihrer verfügbaren Module und Funktionen.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {cardDefs.map((card) => {
-            if (card.allowedRoles && !userRoles.some(role => card.allowedRoles?.includes(role))) {
+            if (card.allowedRoles && !userHasRoles(userRoles as UserRole[], card.allowedRoles)) {
               return null;
             }
             return (

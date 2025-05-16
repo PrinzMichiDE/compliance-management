@@ -11,7 +11,8 @@ import {
   ShieldCheckIcon,
   CogIcon,
   ClipboardDocumentListIcon, 
-  AcademicCapIcon
+  AcademicCapIcon,
+  FolderOpenIcon
 } from '@heroicons/react/24/outline';
 import React from 'react';
 
@@ -43,6 +44,17 @@ const navigationItems: NavItem[] = [
     allowedRoles: [UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER_FULL, UserRole.COMPLIANCE_MANAGER_READ, UserRole.COMPLIANCE_MANAGER_WRITE, UserRole.RISK_MANAGER],
   },
   {
+    href: '/document-library',
+    label: 'Dokumentenbibliothek',
+    icon: <FolderOpenIcon />,
+    allowedRoles: [
+      UserRole.ADMIN,
+      UserRole.COMPLIANCE_MANAGER_FULL,
+      UserRole.COMPLIANCE_MANAGER_READ,
+      UserRole.COMPLIANCE_MANAGER_WRITE
+    ],
+  },
+  {
     href: '/dashboard/my-tasks', 
     label: 'Meine Aufgaben',
     icon: <ClipboardDocumentListIcon />,
@@ -67,6 +79,9 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const currentUserRoles = session?.user?.roles;
 
+  console.log('[Sidebar] Current user roles:', currentUserRoles);
+  console.log('[Sidebar] Session object:', session);
+
   const isActive = (href: string, exact?: boolean) => {
     if (exact) {
       return pathname === href;
@@ -81,8 +96,16 @@ export default function Sidebar() {
       </div>
       <nav className="flex-grow">
         {navigationItems.map((item) => {
-          if (item.allowedRoles && !userHasRoles(currentUserRoles, item.allowedRoles)) {
-            return null;
+          if (item.allowedRoles) {
+            const hasAccess = userHasRoles(currentUserRoles, item.allowedRoles);
+            if (item.label === 'Dokumentenbibliothek') {
+              console.log('[Sidebar] Checking access for Dokumentenbibliothek:');
+              console.log('[Sidebar] Allowed roles:', item.allowedRoles);
+              console.log('[Sidebar] User has access:', hasAccess);
+            }
+            if (!hasAccess) {
+              return null;
+            }
           }
           return (
             <Link

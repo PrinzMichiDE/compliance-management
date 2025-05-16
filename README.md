@@ -50,8 +50,13 @@ NEXT_PUBLIC_ENABLE_LOCAL_REGISTRATION=true
 ENABLE_LOCAL_REGISTRATION=true
 
 
-# .env.local
+# .env
 OPENAI_API_KEY=""
 OPENAI_CUSTOM_ENDPOINT_URL=""
 OPENAI_MODEL_NAME="gpt-4.1-nano"
 OPENAI_EMBEDDING_MODEL_NAME="text-embedding-3-large"
+
+QRANT_URL=
+# QDRANT_API_KEY wird für eine lokale Docker-Instanz ohne Authentifizierung nicht benötigt
+# Falls du lokal einen API-Key verwendest, füge ihn hier hinzu:
+#QDRANT_API_KEY=
